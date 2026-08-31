@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de Informes de Tráfico — MikroTik</title>
+<style>
+  :root{
+    --bg:#0b0f14;
+    --panel:#11161d;
+    --panel-2:#151b23;
+    --border:#232b35;
+    --border-soft:#1a212a;
+    --text:#e6edf3;
+    --text-dim:#8b96a3;
+    --text-faint:#5c6773;
+    --up:#5ec98f;
+    --down:#4fa8e0;
+    --warn:#e8a33d;
+    --crit:#e05c4f;
+    --mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+    --sans: 'IBM Plex Sans', -apple-system, Segoe UI, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+  .app{max-width:920px;margin:0 auto;padding:20px 16px 80px;}
+
+  /* ---------- INPUT PANEL ---------- */
+  .input-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:20px;
+    margin-bottom:24px;
+  }
+  .input-card h1{
+    font-family:var(--mono);
+    font-size:15px;
+    font-weight:600;
+    letter-spacing:0.02em;
+    margin:0 0 4px;
+    color:var(--text);
+    display:flex;align-items:center;gap:8px;
+  }
+  .input-card h1::before{
+    content:"";
+    width:8px;height:8px;border-radius:50%;
+    background:var(--up);
+    box-shadow:0 0 6px var(--up);
+    flex:none;
+  }
+  .input-card p.sub{
+    font-size:13px;color:var(--text-dim);margin:0 0 16px;line-height:1.5;
+  }
+  textarea{
+    width:100%;
+    min-height:170px;
+    background:#080b0f;
+    border:1px solid var(--border);
+    border-radius:3px;
+    color:var(--text);
+    font-family:var(--mono);
+    font-size:12px;
+    line-height:1.5;
+    padding:12px;
+    resize:vertical;
+  }
+  textarea::placeholder{color:var(--text-faint);}
+  .meta-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:14px;
+  }
+  .field label{
+    display:block;
+    font-family:var(--mono);
+    font-size:10.5px;
+    letter-spacing:0.04em;
+    color:var(--text-faint);
+    margin-bottom:5px;
+  }
+  .field input{
+    width:100%;
+    background:#080b0f;
+    border:1px solid var(--border);
+    border-radius:3px;
+    color:var(--text);
+    font-family:var(--mono);
+    font-size:12.5px;
+    padding:8px 10px;
+  }
+  .actions{
+    display:flex;
+    gap:10px;
+    margin-top:16px;
+    flex-wrap:wrap;
+  }
+  button{
+    font-family:var(--sans);
+    font-weight:600;
+    font-size:13px;
+    border-radius:3px;
+    border:1px solid transparent;
+    padding:10px 16px;
+    cursor:pointer;
+    transition:filter .12s ease;
+  }
+  button:active{filter:brightness(0.9);}
+  .btn-primary{background:var(--down);color:#04121e;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-ghost{background:transparent;color:var(--text-dim);border-color:var(--border);}
+  .btn-ghost:hover{color:var(--text);border-color:var(--text-faint);}
+  .error-box{
+    margin-top:14px;
+    background:rgba(224,92,79,0.08);
+    border:1px solid rgba(224,92,79,0.35);
+    color:#f0a89e;
+    font-size:12.5px;
+    padding:10px 12px;
+    border-radius:3px;
+    font-family:var(--mono);
+    display:none;
+  }
+
+  /* ---------- REPORT ---------- */
+  #report{display:none;}
+
+  .letterhead{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    padding:0 2px 12px;
+    border-bottom:2px solid var(--border);
+    margin-bottom:0;
+  }
+  .lh-company{font-family:var(--mono);font-weight:700;font-size:14px;color:var(--text);}
+  .lh-tag{font-size:11px;color:var(--text-faint);margin-top:2px;}
+  .lh-right{text-align:right;}
+  .lh-emitido{font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-top:2px;}
+  .lh-emitido span{color:var(--text-dim);font-weight:600;}
+
+
+  .report-header{
+    border:1px solid var(--border);
+    border-bottom:none;
+    background:linear-gradient(180deg, var(--panel-2), var(--panel));
+    padding:22px 20px 18px;
+    border-radius:4px 4px 0 0;
+  }
+  .rh-top{
+    display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;
+  }
+  .rh-eyebrow{
+    font-family:var(--mono);
+    font-size:10.5px;
+    color:var(--text-faint);
+    letter-spacing:0.05em;
+  }
+  .rh-title{
+    font-family:var(--mono);
+    font-size:22px;
+    font-weight:700;
+    margin:4px 0 2px;
+    color:var(--text);
+  }
+  .rh-sub{
+    font-size:12.5px;color:var(--text-dim);
+  }
+  .rh-badge{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--up);
+    border:1px solid rgba(94,201,143,0.35);
+    background:rgba(94,201,143,0.08);
+    padding:4px 9px;
+    border-radius:20px;
+    white-space:nowrap;
+  }
+  .rh-grid{
+    margin-top:16px;
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    border-top:1px solid var(--border-soft);
+    padding-top:14px;
+    gap:0;
+  }
+  .rh-grid div{padding-right:10px;}
+  .rh-grid .k{font-size:10px;color:var(--text-faint);font-family:var(--mono);letter-spacing:0.03em;}
+  .rh-grid .v{font-size:12.5px;color:var(--text);font-family:var(--mono);margin-top:3px;font-weight:600;}
+
+  .section{
+    border:1px solid var(--border);
+    border-top:none;
+    background:var(--panel);
+    padding:20px;
+  }
+  .section + .section{border-top:1px solid var(--border-soft);}
+  .section:last-child{border-radius:0 0 4px 4px;}
+  .section-title{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.05em;
+    color:var(--text-faint);
+    margin:0 0 14px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .section-title .n{color:var(--down);}
+
+  /* metric cards */
+  .metrics{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:1px;
+    background:var(--border-soft);
+    border:1px solid var(--border-soft);
+    border-radius:3px;
+    overflow:hidden;
+  }
+  .metric{
+    background:var(--panel-2);
+    padding:14px 12px;
+  }
+  .metric .label{font-size:10px;color:var(--text-faint);font-family:var(--mono);letter-spacing:0.03em;}
+  .metric .value{font-family:var(--mono);font-size:17px;font-weight:700;margin-top:6px;color:var(--text);}
+  .metric .value.up{color:var(--up);}
+  .metric .value.down{color:var(--down);}
+  .metric .value.warn{color:var(--warn);}
+  .metric .unit{font-size:10.5px;color:var(--text-dim);font-weight:400;}
+
+  /* segmentation */
+  .seg-bar{
+    display:flex;height:10px;border-radius:5px;overflow:hidden;margin-bottom:14px;background:var(--border-soft);
+  }
+  .seg-bar div{height:100%;}
+  .seg-legend{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:10px;
+  }
+  .seg-item{
+    display:flex;align-items:center;gap:8px;
+    font-size:12px;
+  }
+  .seg-dot{width:9px;height:9px;border-radius:2px;flex:none;}
+  .seg-item .count{font-family:var(--mono);font-weight:700;margin-left:auto;color:var(--text);}
+  .seg-item .lbl{color:var(--text-dim);}
+
+  /* table */
+  .table-wrap{overflow-x:auto;border:1px solid var(--border-soft);border-radius:3px;}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px;min-width:640px;}
+  thead th{
+    text-align:left;
+    background:var(--panel-2);
+    color:var(--text-faint);
+    font-weight:600;
+    font-size:10px;
+    letter-spacing:0.03em;
+    padding:9px 10px;
+    border-bottom:1px solid var(--border-soft);
+    white-space:nowrap;
+  }
+  tbody td{
+    padding:8px 10px;
+    border-bottom:1px solid var(--border-soft);
+    color:var(--text);
+    white-space:nowrap;
+  }
+  tbody tr:hover{background:rgba(255,255,255,0.02);}
+  tbody tr:last-child td{border-bottom:none;}
+  .rank{color:var(--text-faint);}
+  .cname{color:var(--text);font-weight:600;}
+  .tag{
+    display:inline-block;font-size:9.5px;padding:2px 6px;border-radius:10px;font-family:var(--sans);font-weight:600;letter-spacing:0.02em;
+  }
+  .tag-alto{background:rgba(224,92,79,0.12);color:var(--crit);}
+  .tag-medio{background:rgba(232,163,61,0.12);color:var(--warn);}
+  .tag-regular{background:rgba(79,168,224,0.12);color:var(--down);}
+  .drops-high{color:var(--crit);font-weight:700;}
+  .drops-mid{color:var(--warn);}
+  .num{text-align:right;}
+
+  /* findings */
+  .finding{
+    display:flex;gap:12px;
+    padding:12px 0;
+    border-bottom:1px solid var(--border-soft);
+  }
+  .finding:last-child{border-bottom:none;padding-bottom:0;}
+  .finding:first-child{padding-top:0;}
+  .finding .idx{
+    font-family:var(--mono);font-size:11px;color:var(--text-faint);
+    width:20px;flex:none;padding-top:2px;
+  }
+  .finding .body{font-size:13px;line-height:1.55;color:var(--text-dim);}
+  .finding .body b{color:var(--text);font-weight:600;}
+  .finding .body .crit{color:var(--crit);font-weight:600;}
+  .finding.security .idx{color:var(--warn);}
+
+  .sys-events{
+    font-family:var(--mono);font-size:11px;color:var(--text-dim);
+    background:#080b0f;border:1px solid var(--border-soft);border-radius:3px;
+    padding:10px 12px;line-height:1.7;overflow-x:auto;
+  }
+  .sys-events .critical{color:var(--crit);}
+  .sys-events .info{color:var(--text-faint);}
+
+  .footer-note{
+    text-align:center;font-size:11px;color:var(--text-faint);margin-top:14px;font-family:var(--mono);
+  }
+
+  @media (max-width:600px){
+    .rh-grid{grid-template-columns:repeat(2,1fr);row-gap:12px;}
+    .metrics{grid-template-columns:repeat(2,1fr);}
+    .seg-legend{grid-template-columns:1fr;}
+    .meta-row{grid-template-columns:1fr;}
+  }
+
+  /* ---------- PRINT: clean business-report theme, no fills ---------- */
+  @media print{
+    :root{
+      --p-text:#1c2126;
+      --p-dim:#5b6570;
+      --p-faint:#88919a;
+      --p-border:#c9cdd3;
+      --p-border-soft:#dde0e4;
+      --p-up:#1f7a4d;
+      --p-down:#1c5f96;
+      --p-warn:#a3650f;
+      --p-crit:#b23227;
+    }
+    *{
+      -webkit-print-color-adjust:exact !important;
+      print-color-adjust:exact !important;
+      color-adjust:exact !important;
+      box-shadow:none !important;
+    }
+    .input-card, .actions, .no-print{display:none !important;}
+    #report{display:block !important;}
+    .app{max-width:100%;padding:0;}
+    html,body{background:#fff !important;color:var(--p-text) !important;}
+
+    /* kill every panel fill — text and thin rules only */
+    .report-header,
+    .section,
+    .metrics,
+    .metric,
+    thead th,
+    .sys-events,
+    .rh-badge,
+    .tag,
+    .tag-alto,
+    .tag-medio,
+    .tag-regular,
+    tbody tr:hover{
+      background:transparent !important;
+      background-image:none !important;
+      box-shadow:none !important;
+    }
+
+    .letterhead{border-bottom:1px solid var(--p-text) !important;}
+    .lh-company{color:var(--p-text) !important;}
+    .lh-tag,.lh-emitido{color:var(--p-dim) !important;}
+    .lh-emitido span{color:var(--p-text) !important;}
+
+    .report-header{border:none !important;border-bottom:1px solid var(--p-border) !important;padding:10px 0 14px;}
+    .section{border:none !important;padding:16px 0;}
+    .section + .section{border-top:1px solid var(--p-border-soft) !important;}
+    .section:last-child, .report-header{border-radius:0 !important;}
+
+    .rh-eyebrow{color:var(--p-faint) !important;}
+    .rh-title{color:var(--p-text) !important;}
+    .rh-sub{color:var(--p-dim) !important;}
+    .rh-badge{color:var(--p-text) !important;border:1px solid var(--p-border) !important;}
+    .rh-grid{border-top:1px solid var(--p-border-soft) !important;}
+    .rh-grid .k{color:var(--p-faint) !important;}
+    .rh-grid .v{color:var(--p-text) !important;}
+
+    .section-title{color:var(--p-faint) !important;break-after:avoid;page-break-after:avoid;}
+    .section-title .n{color:var(--p-down) !important;}
+
+    .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:none !important;}
+    .metric{border-right:1px solid var(--p-border-soft) !important;padding:8px 12px;}
+    .metric:last-child{border-right:none !important;}
+    .metric .label{color:var(--p-faint) !important;}
+    .metric .value{color:var(--p-text) !important;}
+    .metric .unit{color:var(--p-dim) !important;}
+    .metric .value.up{color:var(--p-up) !important;}
+    .metric .value.down{color:var(--p-down) !important;}
+    .metric .value.warn{color:var(--p-warn) !important;}
+
+    .seg-item .lbl{color:var(--p-dim) !important;}
+    .seg-item .count{color:var(--p-text) !important;}
+    .seg-bar{background:transparent !important;border:1px solid var(--p-border-soft) !important;}
+
+    .table-wrap{border:none !important;overflow:visible !important;}
+    table{width:100% !important;}
+    thead{display:table-header-group;}
+    thead th{color:var(--p-faint) !important;border-bottom:1px solid var(--p-text) !important;}
+    tbody td{color:var(--p-text) !important;border-bottom:1px solid var(--p-border-soft) !important;}
+    tbody tr{break-inside:avoid;page-break-inside:avoid;}
+    .rank{color:var(--p-faint) !important;}
+    .cname{color:var(--p-text) !important;}
+
+    .tag{border:1px solid currentColor;padding:1px 6px;}
+    .tag-alto{color:var(--p-crit) !important;}
+    .tag-medio{color:var(--p-warn) !important;}
+    .tag-regular{color:var(--p-down) !important;}
+    .drops-high{color:var(--p-crit) !important;}
+    .drops-mid{color:var(--p-warn) !important;}
+
+    .finding{border-bottom:1px solid var(--p-border-soft) !important;break-inside:avoid;page-break-inside:avoid;}
+    .finding .idx{color:var(--p-faint) !important;}
+    .finding .body{color:var(--p-dim) !important;}
+    .finding .body b{color:var(--p-text) !important;}
+    .finding .body .crit{color:var(--p-crit) !important;}
+    .finding.security .idx{color:var(--p-warn) !important;}
+
+    .sys-events{border:1px solid var(--p-border-soft) !important;color:var(--p-dim) !important;}
+    .sys-events .critical{color:var(--p-crit) !important;}
+    .sys-events .info{color:var(--p-faint) !important;}
+
+    /* let sections flow across pages naturally; only keep small atomic
+       pieces (rows, findings, metric grid, title+first line) intact */
+    .section{break-inside:auto;page-break-inside:auto;}
+    .metrics{break-inside:avoid;page-break-inside:avoid;}
+    .seg-bar, .seg-legend{break-inside:avoid;page-break-inside:avoid;}
+    .report-header{break-after:avoid;page-break-after:avoid;}
+    h1,h2,h3,.section-title{orphans:3;widows:3;}
+
+    @page{ margin:16mm 14mm; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="input-card no-print" id="inputCard">
+    <h1>GENERADOR DE INFORME DE TRÁFICO</h1>
+    <p class="sub">Pegá la salida de <code>/queue simple print stats</code> de RouterOS (podés incluir también las líneas de log). La herramienta detecta automáticamente clientes PPPoE, consumo, velocidades y descartes, y arma el informe abajo.</p>
+    <textarea id="rawInput" placeholder="[monitor@NODO] > /queue simple/print stats
+Flags: X - DISABLED, I - INVALID; D - DYNAMIC
+ 0    name=&quot;TOTAL-INTERNET-CAKE&quot; target=10.5.0.0/16 rate=4.9Mbps/62.2Mbps ...
+ 1  D name=&quot;&lt;pppoe-cliente59&gt;&quot; target=&lt;pppoe-cliente59&gt; rate=58.8kbps/999.8kbps ... bytes=620390809/9937700050 ... dropped=51298/1158284 ...
+ ..."></textarea>
+
+    <div class="meta-row">
+      <div class="field">
+        <label>ZONA / NODO (opcional, se autodetecta)</label>
+        <input type="text" id="metaZona" placeholder="Ej: TRES CRUCES">
+      </div>
+      <div class="field">
+        <label>FECHA DEL REGISTRO (opcional, se autodetecta)</label>
+        <input type="text" id="metaFecha" placeholder="Ej: 30/08/2026">
+      </div>
+      <div class="field">
+        <label>FECHA Y HORA DE EMISIÓN DEL INFORME</label>
+        <input type="datetime-local" id="metaHora">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" onclick="generarInforme()">Generar informe</button>
+      <button class="btn-ghost" onclick="cargarEjemplo()">Cargar datos de ejemplo</button>
+      <button class="btn-ghost" onclick="window.print()" id="printBtn" style="display:none;">Imprimir / Guardar PDF</button>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <div id="report">
+    <div class="letterhead">
+      <div class="lh-left">
+        <div class="lh-company">Informe de tráfico de red</div>
+        <div class="lh-tag">Monitoreo de infraestructura — RouterOS</div>
+      </div>
+      <div class="lh-right">
+        <div class="lh-emitido">Emitido: <span id="repHora">—</span></div>
+      </div>
+    </div>
+
+    <div class="report-header">
+      <div class="rh-top">
+        <div>
+          <div class="rh-eyebrow">INFORME DE ANÁLISIS DE TRÁFICO DE RED</div>
+          <div class="rh-title" id="repZona">—</div>
+          <div class="rh-sub" id="repFecha">—</div>
+        </div>
+        <div class="rh-badge" id="repVersion">RouterOS —</div>
+      </div>
+      <div class="rh-grid">
+        <div><div class="k">SEGMENTO / TARGET</div><div class="v" id="repTarget">—</div></div>
+        <div><div class="k">CLIENTES ACTIVOS</div><div class="v" id="repClientes">—</div></div>
+        <div><div class="k">ORIGEN</div><div class="v">queue simple print stats</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="n">01</span> RESUMEN MÉTRICO GLOBAL</div>
+      <div class="metrics">
+        <div class="metric">
+          <div class="label">VELOCIDAD INSTANTÁNEA (SUBIDA / BAJADA)</div>
+          <div class="value" id="mVelocidad">—</div>
+        </div>
+        <div class="metric">
+          <div class="label">TRÁFICO ACUMULADO TOTAL</div>
+          <div class="value down" id="mTrafico">—</div>
+        </div>
+        <div class="metric">
+          <div class="label">TASA DE PAQUETES (PPS)</div>
+          <div class="value" id="mPps">—</div>
+        </div>
+        <div class="metric">
+          <div class="label">DESCARTES GLOBALES (COLA PRINCIPAL)</div>
+          <div class="value" id="mDrops">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="n">02</span> SEGMENTACIÓN POR RANGOS DE CONSUMO</div>
+      <div class="seg-bar" id="segBar"></div>
+      <div class="seg-legend" id="segLegend"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="n">03</span> TABLA CONSOLIDADA POR CLIENTE — ORDENADO POR CONSUMO TOTAL</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Cliente</th>
+              <th>Vel. instantánea</th>
+              <th class="num">Up (GB)</th>
+              <th class="num">Down (GB)</th>
+              <th class="num">Total (GB)</th>
+              <th class="num">Drops</th>
+              <th>Nivel</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="n">04</span> HALLAZGOS OPERATIVOS RELEVANTES</div>
+      <div id="findings"></div>
+    </div>
+
+    <div class="section" id="eventsSection" style="display:none;">
+      <div class="section-title"><span class="n">05</span> EVENTOS DE SISTEMA DETECTADOS EN EL LOG</div>
+      <div class="sys-events" id="sysEvents"></div>
+    </div>
+
+  </div>
+
+  <div class="footer-note no-print" id="footerNote" style="display:none;">Informe generado localmente en el navegador — ningún dato fue enviado a un servidor.</div>
+
+</div>
+
+<script>
+const EJEMPLO = `MikroTik RouterOS 7.23.3 (c) 1999-2026       https://www.mikrotik.com/
+
+2026-08-30 06:01:19 system,clock,critical,info ntp change time Aug/30/2026 06:00:37 => Aug/30/2026 06:01:19
+2026-08-30 16:42:40 system,error,critical login failure for user beymar from 10.0.0.57 via winbox
+2026-08-30 16:42:42 system,error,critical login failure for user beymar from 10.0.0.57 via winbox
+2026-08-30 16:42:43 system,error,critical login failure for user beymar from 10.0.0.57 via winbox
+[monitor@SANTA_CRUZ_3_CRUCES] > /queue simple/print stats
+Flags: X - DISABLED, I - INVALID; D - DYNAMIC
+ 0    name="TOTAL-INTERNET-CAKE" target=10.5.0.0/16 rate=4.9Mbps/62.2Mbps total-rate=0bps packet-rate=3248/6893 total-packet-rate=0 queued-bytes=0/0 total-queued-bytes=0
+      queued-packets=0/0 total-queued-packets=0 bytes=39068700528/430321672770 total-bytes=0 packets=173892403/375274971 total-packets=0 dropped=0/0 total-dropped=0
+
+ 1  D name="<pppoe-cliente59>" target=<pppoe-cliente59> rate=58.8kbps/999.8kbps total-rate=0bps packet-rate=36/115 total-packet-rate=0 queued-bytes=0/0 total-queued-bytes=0
+      queued-packets=0/0 total-queued-packets=0 bytes=620390809/9937700050 total-bytes=0 packets=3529503/8664051 total-packets=0 dropped=51298/1158284 total-dropped=0 pcq-queues=1/1
+
+ 2  D name="<pppoe-cliente1>" target=<pppoe-cliente1> rate=110.5kbps/3.3Mbps total-rate=0bps packet-rate=108/333 total-packet-rate=0 queued-bytes=0/35006 total-queued-bytes=0
+      queued-packets=0/23 total-queued-packets=0 bytes=671926944/9286488492 total-bytes=0 packets=2886598/7579086 total-packets=0 dropped=10658/1002000 total-dropped=0
+      pcq-queues=1/1
+
+ 3  D name="<pppoe-cliente5>" target=<pppoe-cliente5> rate=368bps/368bps total-rate=0bps packet-rate=1/1 total-packet-rate=0 queued-bytes=0/0 total-queued-bytes=0 queued-packets=0/0
+      total-queued-packets=0 bytes=229954449/2086931455 total-bytes=0 packets=806418/1768929 total-packets=0 dropped=9297/150961 total-dropped=0 pcq-queues=1/1
+
+ 4  D name="<pppoe-cliente36>" target=<pppoe-cliente36> rate=78.7kbps/62.4kbps total-rate=0bps packet-rate=149/118 total-packet-rate=0 queued-bytes=0/0 total-queued-bytes=0
+      queued-packets=0/0 total-queued-packets=0 bytes=3874582907/35912352079 total-bytes=0 packets=18066138/33992386 total-packets=0 dropped=4318329/2981970 total-dropped=0
+      pcq-queues=1/1
+
+ 5  D name="<pppoe-cliente56>" target=<pppoe-cliente56> rate=155.1kbps/4.2Mbps total-rate=0bps packet-rate=276/385 total-packet-rate=0 queued-bytes=0/0 total-queued-bytes=0
+      queued-packets=0/0 total-queued-packets=0 bytes=28295403/220850844 total-bytes=0 packets=139475/212486 total-packets=0 dropped=89/11341 total-dropped=0 pcq-queues=1/1
+-- [Q quit|D dump|up|down]`;
+
+function cargarEjemplo(){
+  document.getElementById('rawInput').value = EJEMPLO;
+}
+
+function pad(n){ return String(n).padStart(2,'0'); }
+
+function nowForDatetimeLocal(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+window.addEventListener('DOMContentLoaded', ()=>{
+  const metaHora = document.getElementById('metaHora');
+  if(metaHora && !metaHora.value) metaHora.value = nowForDatetimeLocal();
+});
+
+function formatHoraManual(value){
+  if(!value) return null;
+  const [datePart, timePart] = value.split('T');
+  const [y,m,d] = datePart.split('-');
+  return `${d}/${m}/${y} ${timePart} hs`;
+}
+
+function fmtBytesToGB(bytes){
+  return bytes / (1024**3);
+}
+
+function humanRate(str){
+  return str;
+}
+
+// Escapa caracteres especiales de HTML para que nombres como
+// "<pppoe-cliente59>" se MUESTREN como texto y no se interpreten
+// como una etiqueta HTML (esta era la causa de que no aparecieran
+// los clientes en la tabla).
+function escapeHtml(str){
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function parseMikrotik(raw){
+  const errors = [];
+
+  // ---- metadata ----
+  let version = null;
+  const vMatch = raw.match(/RouterOS\s+([\d.]+)/i);
+  if(vMatch) version = vMatch[1];
+
+  let nodo = null;
+  const nodoMatch = raw.match(/\[\w+@([^\]]+)\]/);
+  if(nodoMatch) nodo = nodoMatch[1].replace(/_/g,' ');
+
+  let fecha = null;
+  const fechaMatch = raw.match(/(\d{4}-\d{2}-\d{2})\s+\d{2}:\d{2}:\d{2}/);
+  if(fechaMatch){
+    const [y,m,d] = fechaMatch[1].split('-');
+    fecha = `${d}/${m}/${y}`;
+  }
+
+  // ---- system events ----
+  const eventLines = [];
+  const evRegex = /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+system,.+$/gm;
+  let evm;
+  while((evm = evRegex.exec(raw)) !== null){
+    eventLines.push(evm[0]);
+  }
+
+  // ---- split queue entries ----
+  const headerRegex = /^\s*(\d+)\s+(D\s+)?name="([^"]+)"/gm;
+  const starts = [];
+  let hm;
+  while((hm = headerRegex.exec(raw)) !== null){
+    starts.push({index: hm.index, isDynamic: !!hm[2], name: hm[3]});
+  }
+
+  if(starts.length === 0){
+    errors.push('No se encontraron entradas de queue (líneas con formato: N  D name="...").');
+    return {errors};
+  }
+
+  const blocks = starts.map((s,i)=>{
+    const end = (i+1 < starts.length) ? starts[i+1].index : raw.length;
+    return {...s, text: raw.substring(s.index, end)};
+  });
+
+  function extractField(block, fieldRegex){
+    const m = block.match(fieldRegex);
+    return m ? m : null;
+  }
+
+  let target = null;
+  let instRateUp = null, instRateDown = null;
+  let pps = null;
+  let globalDroppedUp = 0, globalDroppedDown = 0;
+  let hasGlobal = false;
+
+  const clients = [];
+
+  blocks.forEach(b=>{
+    if(!b.isDynamic){
+      // treat as the aggregate/total queue
+      hasGlobal = true;
+      const tMatch = b.text.match(/target=(\S+)/);
+      if(tMatch) target = tMatch[1];
+      const rMatch = b.text.match(/(?<!total-)(?<!packet-)rate=(\S+?)\/(\S+?)\s/);
+      if(rMatch){ instRateUp = rMatch[1]; instRateDown = rMatch[2]; }
+      const pMatch = b.text.match(/(?<!total-)packet-rate=(\d+)\/(\d+)/);
+      if(pMatch){ pps = [pMatch[1], pMatch[2]]; }
+      const dMatch = b.text.match(/(?<!total-)dropped=(\d+)\/(\d+)/);
+      if(dMatch){ globalDroppedUp = parseInt(dMatch[1]); globalDroppedDown = parseInt(dMatch[2]); }
+      return;
+    }
+    // client entry
+    const name = b.name;
+    const rMatch = b.text.match(/(?<!total-)(?<!packet-)rate=(\S+?)\/(\S+?)\s/);
+    const byMatch = b.text.match(/(?<!total-)(?<!queued-)bytes=(\d+)\/(\d+)/);
+    const drMatch = b.text.match(/(?<!total-)dropped=(\d+)\/(\d+)/);
+
+    if(!byMatch){
+      return; // skip malformed entries
+    }
+    const upBytes = parseInt(byMatch[1]);
+    const downBytes = parseInt(byMatch[2]);
+    const upGB = fmtBytesToGB(upBytes);
+    const downGB = fmtBytesToGB(downBytes);
+    const totalGB = upGB + downGB;
+    const upDrops = drMatch ? parseInt(drMatch[1]) : 0;
+    const downDrops = drMatch ? parseInt(drMatch[2]) : 0;
+
+    clients.push({
+      name,
+      rateUp: rMatch ? rMatch[1] : '0bps',
+      rateDown: rMatch ? rMatch[2] : '0bps',
+      upGB, downGB, totalGB,
+      upDrops, downDrops, totalDrops: upDrops+downDrops
+    });
+  });
+
+  if(clients.length === 0){
+    errors.push('Se detectaron entradas, pero ninguna corresponde a un cliente dinámico (flag D). Verificá el texto pegado.');
+  }
+
+  clients.sort((a,b)=> b.totalGB - a.totalGB);
+
+  // fallback for global stats if no aggregate row found
+  let totalTrafficGB;
+  if(hasGlobal){
+    // try to read aggregate bytes too, else sum clients
+    totalTrafficGB = clients.reduce((s,c)=>s+c.totalGB,0);
+  } else {
+    totalTrafficGB = clients.reduce((s,c)=>s+c.totalGB,0);
+  }
+
+  return {
+    errors, version, nodo, fecha, target,
+    instRateUp, instRateDown, pps,
+    globalDroppedUp, globalDroppedDown,
+    clients, totalTrafficGB, eventLines
+  };
+}
+
+function tagFor(totalGB){
+  if(totalGB >= 10) return {label:'ALTO', cls:'tag-alto'};
+  if(totalGB >= 5) return {label:'MEDIO', cls:'tag-medio'};
+  if(totalGB > 0) return {label:'REGULAR', cls:'tag-regular'};
+  return {label:'INACTIVO', cls:''};
+}
+
+function generarInforme(){
+  const raw = document.getElementById('rawInput').value.trim();
+  const errorBox = document.getElementById('errorBox');
+  errorBox.style.display = 'none';
+
+  if(!raw){
+    errorBox.textContent = 'Pegá primero la salida del router en el cuadro de texto.';
+    errorBox.style.display = 'block';
+    return;
+  }
+
+  const data = parseMikrotik(raw);
+
+  if(data.errors && data.errors.length && (!data.clients || data.clients.length===0)){
+    errorBox.textContent = data.errors.join(' ');
+    errorBox.style.display = 'block';
+    document.getElementById('report').style.display = 'none';
+    return;
+  }
+
+  const zonaManual = document.getElementById('metaZona').value.trim();
+  const fechaManual = document.getElementById('metaFecha').value.trim();
+  const horaManual = document.getElementById('metaHora').value;
+
+  const zonaFinal = zonaManual || data.nodo || 'NODO SIN IDENTIFICAR';
+  const horaFinal = formatHoraManual(horaManual) || new Date().toLocaleString('es-UY', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) + ' hs';
+
+  document.getElementById('repZona').textContent = zonaFinal;
+  document.getElementById('repFecha').textContent = 'Fecha del registro: ' + (fechaManual || data.fecha || '—');
+  document.getElementById('repVersion').textContent = 'RouterOS ' + (data.version || '—');
+  document.getElementById('repTarget').textContent = data.target || '—';
+  document.getElementById('repClientes').textContent = data.clients.length;
+  document.getElementById('repHora').textContent = horaFinal;
+
+  // metrics
+  document.getElementById('mVelocidad').innerHTML =
+    (data.instRateUp||'—') + ' <span class="unit">/</span> ' + (data.instRateDown||'—');
+  document.getElementById('mTrafico').innerHTML =
+    data.totalTrafficGB.toFixed(2) + ' <span class="unit">GB</span>';
+  document.getElementById('mPps').innerHTML =
+    data.pps ? (parseInt(data.pps[0]).toLocaleString('es-UY') + ' <span class="unit">/</span> ' + parseInt(data.pps[1]).toLocaleString('es-UY') + ' <span class="unit">pps</span>') : '—';
+  const totalDrops = data.globalDroppedUp + data.globalDroppedDown;
+  const dropsEl = document.getElementById('mDrops');
+  dropsEl.innerHTML = totalDrops.toLocaleString('es-UY') + ' <span class="unit">pkts</span>';
+  dropsEl.className = 'value ' + (totalDrops > 0 ? 'warn' : 'up');
+
+  // segmentation
+  const alto = data.clients.filter(c=>c.totalGB>=10);
+  const medio = data.clients.filter(c=>c.totalGB>=5 && c.totalGB<10);
+  const regular = data.clients.filter(c=>c.totalGB>0 && c.totalGB<5);
+  const inactivo = data.clients.filter(c=>c.totalGB===0);
+  const total = data.clients.length || 1;
+
+  const segBar = document.getElementById('segBar');
+  segBar.innerHTML = '';
+  const segs = [
+    {n:alto.length, color:'var(--crit)'},
+    {n:medio.length, color:'var(--warn)'},
+    {n:regular.length, color:'var(--down)'},
+    {n:inactivo.length, color:'var(--text-faint)'}
+  ];
+  segs.forEach(s=>{
+    if(s.n===0) return;
+    const d = document.createElement('div');
+    d.style.width = (s.n/total*100)+'%';
+    d.style.background = s.color;
+    segBar.appendChild(d);
+  });
+
+  const legendData = [
+    {label:'Alto consumo (≥ 10 GB)', n:alto.length, color:'var(--crit)'},
+    {label:'Medio (5.00 – 9.99 GB)', n:medio.length, color:'var(--warn)'},
+    {label:'Regular (0.01 – 4.99 GB)', n:regular.length, color:'var(--down)'},
+    {label:'Inactivos / sin consumo', n:inactivo.length, color:'var(--text-faint)'}
+  ];
+  document.getElementById('segLegend').innerHTML = legendData.map(l=>`
+    <div class="seg-item">
+      <div class="seg-dot" style="background:${l.color}"></div>
+      <div class="lbl">${l.label}</div>
+      <div class="count">${l.n}</div>
+    </div>
+  `).join('');
+
+  // table
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = data.clients.map((c,i)=>{
+    const t = tagFor(c.totalGB);
+    const dropsCls = c.totalDrops > 1000000 ? 'drops-high' : (c.totalDrops > 100000 ? 'drops-mid' : '');
+    return `<tr>
+      <td class="rank">${i+1}</td>
+      <td class="cname">${escapeHtml(c.name)}</td>
+      <td>${escapeHtml(c.rateUp)} <span style="color:var(--text-faint)">/</span> ${escapeHtml(c.rateDown)}</td>
+      <td class="num">${c.upGB.toFixed(2)}</td>
+      <td class="num">${c.downGB.toFixed(2)}</td>
+      <td class="num" style="color:var(--text);font-weight:700;">${c.totalGB.toFixed(2)}</td>
+      <td class="num ${dropsCls}">${c.totalDrops.toLocaleString('es-UY')}</td>
+      <td>${t.label ? `<span class="tag ${t.cls}">${t.label}</span>` : '<span style="color:var(--text-faint)">—</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  // findings
+  const findings = [];
+  const top = data.clients.slice(0,2);
+  if(top.length===2){
+    findings.push(`<b>Top consumo acumulado:</b> ${escapeHtml(top[0].name)} encabeza la red con ${top[0].totalGB.toFixed(2)} GB de consumo total, seguido de ${escapeHtml(top[1].name)} con ${top[1].totalGB.toFixed(2)} GB.`);
+  } else if(top.length===1){
+    findings.push(`<b>Top consumo acumulado:</b> ${escapeHtml(top[0].name)} encabeza la red con ${top[0].totalGB.toFixed(2)} GB de consumo total.`);
+  }
+
+  const byDrops = [...data.clients].sort((a,b)=>b.totalDrops-a.totalDrops).filter(c=>c.totalDrops>0).slice(0,4);
+  if(byDrops.length){
+    const items = byDrops.map(c=>{
+      const dirDominant = c.upDrops > c.downDrops ? `${(c.upDrops/1000).toFixed(0)}k en subida` : `${(c.downDrops/1000).toFixed(0)}k en bajada`;
+      return `${escapeHtml(c.name)}: registra <span class="crit">${c.totalDrops.toLocaleString('es-UY')}</span> descartes totales (${dirDominant}).`;
+    }).join('<br>');
+    findings.push(`<b>Pérdida de paquetes (drops):</b><br>${items}`);
+  }
+
+  if(totalDrops === 0){
+    findings.push(`<b>Cola principal (CAKE):</b> sin descartes registrados en el agregado — la congestión detectada es local a las colas PCQ de cada cliente, no del enlace troncal.`);
+  } else {
+    findings.push(`<b>Cola principal (CAKE):</b> registra ${totalDrops.toLocaleString('es-UY')} descartes en el agregado, lo que indica presión también a nivel del enlace troncal.`);
+  }
+
+  document.getElementById('findings').innerHTML = findings.map((f,i)=>`
+    <div class="finding"><div class="idx">${String(i+1).padStart(2,'0')}</div><div class="body">${f}</div></div>
+  `).join('');
+
+  // system events
+  const eventsSection = document.getElementById('eventsSection');
+  if(data.eventLines && data.eventLines.length){
+    eventsSection.style.display = 'block';
+    const failedLogins = data.eventLines.filter(l=>l.includes('login failure'));
+    let html = data.eventLines.map(l=>{
+      const cls = l.includes('critical') && l.includes('login failure') ? 'critical' : 'info';
+      return `<div class="${cls}">${escapeHtml(l)}</div>`;
+    }).join('');
+    eventsSection.querySelector('.sys-events').innerHTML = html;
+    if(failedLogins.length >= 3){
+      document.getElementById('findings').innerHTML += `
+        <div class="finding security"><div class="idx">!</div><div class="body"><b>Alerta de seguridad:</b> se registraron ${failedLogins.length} intentos fallidos de inicio de sesión consecutivos, sugiriendo un posible intento de fuerza bruta sobre el acceso de administración.</div></div>
+      `;
+    }
+  } else {
+    eventsSection.style.display = 'none';
+  }
+
+  document.getElementById('report').style.display = 'block';
+  document.getElementById('printBtn').style.display = 'inline-block';
+  document.getElementById('footerNote').style.display = 'block';
+  document.getElementById('report').scrollIntoView({behavior:'smooth', block:'start'});
+}
+</script>
+</body>
+</html>
